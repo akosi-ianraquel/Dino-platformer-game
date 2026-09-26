@@ -1,0 +1,146 @@
+import pygame
+import os
+from sys import exit
+import spritesheet
+
+pygame.init()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+screen = pygame.display.set_mode((1200,500))
+pygame.display.set_caption('Dinoventure')
+clock = pygame.time.Clock() 
+text_font = pygame.font.Font(os.path.join(BASE_DIR, 'Pixeltype.ttf'), 50)
+
+
+
+tilesetgrass = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'tilesetgrass.png')).convert()
+tileset_part = pygame.Rect(286, 96, 34, 26)
+tileset_part_subsurface = tilesetgrass.subsurface(tileset_part)
+normal_grass_surface = pygame.transform.scale_by(tileset_part_subsurface, 4)
+normal_grass_rect = normal_grass_surface.get_rect(midleft = (0, 450))
+
+
+grass_width = normal_grass_surface.get_width()
+
+main_background = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', '6','1.png')).convert()
+main_background_surface = pygame.transform.scale(main_background, (1200,500))
+
+
+
+
+text_surface = text_font.render('Dinoventure', True, 'white')
+
+
+doux_spritesheet_image = pygame.image.load(os.path.join(BASE_DIR, 'graphics','characters','sheets','character_doux.png')).convert_alpha()
+doux_sprite_sheet = spritesheet.SpriteSheet(doux_spritesheet_image)
+doux_rect = doux_sprite_sheet.get_image(0, 24, 24, 3, 'BLACK').get_rect(midbottom = (100, 430))
+
+
+#doux animation frames 
+animation_list = []
+animation_steps = [4, 6, 3, 3]
+action = 0 #0 for idle, 1 for run, 2 for jump
+last_update = pygame.time.get_ticks()
+animation_perframe_cooldown = 75 #milliseconds between frames before load second frame
+current_frame = 0
+step_counter = 0
+
+
+#jumping "physics"
+ground_y = 430  
+vertical_velocity = 0
+gravity = 1.2
+jump_strength = -22
+is_jumping = False
+
+
+
+for animation in animation_steps:
+    temp_img_list = []
+    for _ in range(animation):
+        temp_img_list.append(doux_sprite_sheet.get_image(step_counter, 24, 24, 3, 'BLACK'))
+        step_counter += 1
+    animation_list.append(temp_img_list)
+
+scroll_speed = 7
+grass_scroll = 0    
+bg_scroll = 0
+
+bg_images = []
+for i in range(1, 5):
+    bg_image = pygame.image.load(os.path.join(BASE_DIR, 'graphics','elements','6', f'{i}.png')).convert_alpha()
+    bg_image = pygame.transform.scale(bg_image, (1200, 500))
+    bg_images.append(bg_image)
+bg_width = bg_images[0].get_width()
+
+def draw_background():
+    speed = 0.2
+    for layer in bg_images:
+        offset = (bg_scroll * speed) % bg_width
+        tiles_needed = (1200 // bg_width) + 2
+        for x in range(-1, tiles_needed):
+            screen.blit(layer, (x * bg_width - offset, 0))
+        speed += 0.3
+
+
+#updater game main loop
+while True:
+    #event handling
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:   
+            pygame.quit()
+            exit()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE and not is_jumping:
+                vertical_velocity = jump_strength
+                is_jumping = True
+
+    
+    draw_background()
+    bg_scroll += scroll_speed * 0.5
+   
+
+    screen.blit(text_surface, (700, 50))
+    
+   
+    grass_scroll -= scroll_speed
+    if abs(grass_scroll) > grass_width:
+        grass_scroll = 0
+        
+
+    
+    for i in range(0, 1900, grass_width):
+        screen.blit(normal_grass_surface, (i + grass_scroll, 420))  
+
+    prev_action = action
+    
+
+    vertical_velocity += gravity
+    doux_rect.y += vertical_velocity
+
+    if doux_rect.bottom >= ground_y:
+        doux_rect.bottom = ground_y
+        vertical_velocity = 0
+        is_jumping = False
+
+    action = 2 if is_jumping else 1
+
+    #doux animation
+    if action != prev_action:
+        current_frame = 0
+
+    current_time = pygame.time.get_ticks()
+    if current_time - last_update >= animation_perframe_cooldown:
+        current_frame += 1
+        last_update = current_time
+        if current_frame >= len(animation_list[action]):
+            current_frame = 0
+        
+    
+    
+
+    screen.blit(animation_list[action][current_frame], doux_rect)
+
+
+    pygame.display.update()
+    clock.tick(60)
