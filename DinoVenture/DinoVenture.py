@@ -11,7 +11,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 screen = pygame.display.set_mode((1200, 500), vsync=1)
 pygame.display.set_caption('Dinoventure')
 clock = pygame.time.Clock()
-title_font = pygame.font.Font(os.path.join(BASE_DIR, 'Pixeltype.ttf'), 50)
+title_font = pygame.font.Font(os.path.join(BASE_DIR, 'Pixeltype.ttf'), 80)
+score_font = pygame.font.Font(os.path.join(BASE_DIR, 'Pixeltype.ttf'), 35)
 button_font = pygame.font.Font(os.path.join(BASE_DIR, 'Pixeltype.ttf'), 30)
 
 
@@ -19,12 +20,13 @@ MENU = 'menu'
 PLAYING = 'playing'
 GAME_OVER = 'game_over'
 game_state = MENU
+score = 0
 
 
-ground_y = 400        # the y position the dino and cactus stand on
-scroll_speed = 7      # how fast the grass and cactus move left
+ground_y = 400        # the y position the dino and cactus 
+scroll_speed = 7      # initial speed on how fast the grass and cactus move left
 gravity = 1.2
-jump_strength = -16
+jump_strength = -20
 
 
 # One picture drawn twice side by side, so it can scroll forever
@@ -85,6 +87,8 @@ dark_overlay.set_alpha(140)
 dark_overlay.fill('black')
 
 
+
+
 def draw_button(text, rect):
     pygame.draw.rect(screen, 'white', rect, border_radius=10)
     label = button_font.render(text, True, 'black')
@@ -97,18 +101,19 @@ def place_cactus():
 
 
 def reset_game():
-    global vertical_velocity, is_jumping
+    global vertical_velocity, is_jumping, score
     dino_rect.midbottom = (100, ground_y)
     vertical_velocity = 0
     is_jumping = False
+    score = 0
     place_cactus()
 
 
 def update_animation():
     global frame, last_frame_time
-    now = pygame.time.get_ticks()
-    if now - last_frame_time >= frame_delay:
-        last_frame_time = now
+    current_tick = pygame.time.get_ticks()
+    if current_tick - last_frame_time >= frame_delay:
+        last_frame_time = current_tick
         frame += 1
         if frame >= len(dino_frames[action]):
             frame = 0
@@ -126,6 +131,8 @@ def music_player(filename, volume):
     pygame.mixer.music.load(os.path.join(BASE_DIR, 'music', filename))
     pygame.mixer.music.play(-1)
     pygame.mixer.music.set_volume(volume)
+
+
     
 
 while True:
@@ -152,6 +159,7 @@ while True:
         update_animation()
 
     elif game_state == PLAYING:
+        score += 0.4
         bg_x -= bg_speed
         if bg_x <= -bg_width:
             bg_x += bg_width
@@ -188,13 +196,17 @@ while True:
     draw_scene()
 
     if game_state == MENU:
-        screen.blit(title_text, (700, 50))
+        screen.blit(title_text, (800, 50))
         draw_button('Start', start_button)
 
     elif game_state == GAME_OVER:
         screen.blit(dark_overlay, (0, 0))
         screen.blit(game_over_text, game_over_text.get_rect(center=(600, 175)))
         draw_button('Restart', restart_button)
+
+    if game_state != MENU:
+        score_text = score_font.render(f'Score: {int(score)}', True, 'white')
+        screen.blit(score_text, (950, 30))
 
     pygame.display.update()
     clock.tick(60)
