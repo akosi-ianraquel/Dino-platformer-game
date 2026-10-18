@@ -22,10 +22,14 @@ PLAYING = 'playing'
 GAME_OVER = 'game_over'
 game_state = MENU
 score = 0
+base_score_constant = 0.4
 
 
 ground_y = 400        # the y position the dino and cactus 
-scroll_speed = 7      # initial speed on how fast the grass and cactus move left
+base_speed = 7        # how fast the grass and cactus move at the start of a run
+max_speed = 20        # the game never gets faster than this
+points_per_speed = 100   # every 200 points the game speeds up by 1
+scroll_speed = base_speed
 gravity = 1.2
 jump_strength = -20
 min_gap = 400          # smallest empty space between two cacti (pixels)
@@ -37,7 +41,8 @@ bg_image = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'bac
 bg_image = pygame.transform.scale(bg_image, (1200, 500))
 bg_width = bg_image.get_width()
 bg_x = 0
-bg_speed = 3          # slower than the grass, so it looks far away
+bg_ratio = 3 / 7      # the background moves slower than the grass, so it looks far away
+bg_speed = scroll_speed * bg_ratio
 
 
 tileset = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'tilesetgrass.png')).convert()
@@ -53,6 +58,12 @@ cactus_image = pygame.transform.scale_by(cactus_part, 2)
 cactus_mask = pygame.mask.from_surface(cactus_image)   # only the visible pixels count as a hit
 cactus_rects = [cactus_image.get_rect(midbottom=(1300, ground_y)) for _ in range(4)]
 
+
+multiplier_powerup = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'powerup2x.png')).convert_alpha()
+multiplier_precised = multiplier_powerup.subsurface(pygame.Rect(366, 367, 1316, 1318))
+multiplier_sized = pygame.transform.scale(multiplier_precised, (30, 30))
+multiplier_mask = pygame.mask.from_surface(multiplier_sized)
+multiplier_rects =  [multiplier_sized.get_rect(midbottom=(1300, ground_y)) for _ in range(4)]
 
 
 dino_sheet = spritesheet.SpriteSheet(
@@ -80,8 +91,12 @@ is_jumping = False
 
 start_button = pygame.Rect(0, 0, 200, 60)
 start_button.center = (950, 220)
+
 restart_button = pygame.Rect(0, 0, 200, 60)
-restart_button.center = (600, 250)
+restart_button.center = (600, 300)
+
+quit_button = pygame.Rect(0, 0, 200, 60)
+quit_button.center = (600, 370)
 
 
 title_text = title_font.render('Dinoventure', True, 'white')
@@ -97,28 +112,48 @@ def draw_button(text, rect):
     screen.blit(label, label.get_rect(center=rect.center))
 
 
+def random_gap():
+    # the faster the game, the bigger the gap, so the player always has the same time to react
+    return random.randint(min_gap, max_gap) * scroll_speed / base_speed
+
+
 def reset_cacti():
     # line the cacti up off the right edge, one after another, with random gaps
     x = 1200
     for cactus in cactus_rects:
-        cactus.left = x + random.randint(min_gap, max_gap)
+        cactus.left = x + random_gap()
         cactus.bottom = ground_y
         x = cactus.right
 
 
+def reset_powerups():
+    # line the cacti up off the right edge, one after another, with random gaps
+    x = 1200
+    for powerup in multiplier_rects:
+        powerup.left = x + random_gap()
+        powerup.bottom = ground_y
+        x = powerup.right
+
 def place_cactus(cactus):
     # cactus placement random
     farthest = max(c.right for c in cactus_rects)
-    cactus.left = max(1200, farthest) + random.randint(min_gap, max_gap)
+    cactus.left = max(1200, farthest) + random_gap()
+
+def place_powerup(powerup):
+    # cactus placement random
+    farthest = max(c.right for c in multiplier_rects)
+    powerup.left = max(1200, farthest) + random_gap()
 
 
 def reset_game():
-    global vertical_velocity, is_jumping, score
+    global vertical_velocity, is_jumping, score, scroll_speed
     dino_rect.midbottom = (100, ground_y)
     vertical_velocity = 0
     is_jumping = False
     score = 0
+    scroll_speed = base_speed
     reset_cacti()
+    reset_powerups()
 
 
 def update_animation():
@@ -139,6 +174,8 @@ def draw_scene():
     screen.blit(dino_frames[action][frame], dino_rect)
     for cactus in cactus_rects:
         screen.blit(cactus_image, cactus)
+    for powerup in multiplier_rects:
+        screen.blit(multiplier_sized, powerup)
 
 def music_player(filename, volume, times):
     pygame.mixer.music.load(os.path.join(BASE_DIR, 'music', filename))
@@ -178,6 +215,9 @@ while True:
                 reset_game()
                 music_player('bgm.ogg', 0.7, -1)
                 game_state = PLAYING
+            elif game_state == GAME_OVER and quit_button.collidepoint(event.pos):
+                pygame.quit()
+                exit()
 
 
     if game_state == MENU:
@@ -185,7 +225,9 @@ while True:
         update_animation()
 
     elif game_state == PLAYING:
-        score += 0.4
+        score += base_score_constant
+        scroll_speed = min(base_speed + (score // points_per_speed), max_speed)
+        bg_speed = scroll_speed * bg_ratio
         bg_x -= bg_speed
         if bg_x <= -bg_width:
             bg_x += bg_width
@@ -210,7 +252,11 @@ while True:
             cactus.x -= scroll_speed
             if cactus.right < 0:
                 place_cactus(cactus)
-        
+
+        for powerup in multiplier_rects:
+            powerup.x -= scroll_speed
+            if powerup.right < 0:
+                place_cactus(powerup)
 
         dino_mask = pygame.mask.from_surface(dino_frames[action][frame])
         for cactus in cactus_rects:
@@ -222,8 +268,11 @@ while True:
                     high_score = int(score)
                     highscore.save(high_score)
                 break
-
-
+        for powerup in multiplier_rects:
+            offset = (powerup.x - dino_rect.x, powerup.y - dino_rect.y)
+            if dino_mask.overlap(multiplier_mask, offset):
+                score = score * 2
+                
     draw_scene()
 
     if game_state == MENU:
@@ -234,7 +283,7 @@ while True:
         screen.blit(dark_overlay, (0, 0))
         screen.blit(game_over_text, game_over_text.get_rect(center=(600, 175)))
         draw_button('Restart', restart_button)
-        
+        draw_button('Quit', quit_button)
 
     if game_state != MENU:
         score_text = score_font.render(f'Score: {int(score)}', True, 'white')
@@ -245,7 +294,10 @@ while True:
         screen.blit(high_text, high_text.get_rect(center=(950, 290)))
     else:
         screen.blit(high_text, (950, 60))
-        
+    
+    
+
+
 
     pygame.display.update()
     clock.tick(60)
