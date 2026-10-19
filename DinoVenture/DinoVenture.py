@@ -62,12 +62,12 @@ cactus_mask = pygame.mask.from_surface(cactus_image)   # only the visible pixels
 cactus_rects = [cactus_image.get_rect(midbottom=(1300, ground_y)) for _ in range(4)]
 
 
-# CHANGED: renamed to follow the cactus names (sheet -> part -> image -> mask -> rect)
+
 powerup_sheet = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'powerup2x.png')).convert_alpha()
 powerup_part = powerup_sheet.subsurface(pygame.Rect(366, 367, 1316, 1318))
 powerup_image = pygame.transform.scale(powerup_part, (30, 30))
 powerup_mask = pygame.mask.from_surface(powerup_image)
-powerup_rect = powerup_image.get_rect(midbottom=(1300, ground_y))   # CHANGED: one powerup at a time, not a list of 4
+powerup_rect = powerup_image.get_rect(midbottom=(1300, ground_y))   
 
 
 dino_sheet = spritesheet.SpriteSheet(
@@ -131,14 +131,12 @@ def reset_cacti():
 
 
 def reset_powerup():
-    # CHANGED: replaces reset_powerups(); a new run has no powerup on screen and the first one comes at 200 points
     global powerup_active, next_powerup_score
     powerup_active = False
     next_powerup_score = powerup_every
 
 
 def spawn_powerup():
-    # NEW: put the powerup just off the right edge, and keep it away from the cacti
     global powerup_active, next_powerup_score
     powerup_rect.midbottom = (1250, ground_y)
     for cactus in sorted(cactus_rects, key=lambda c: c.x):      # sorted left to right
@@ -161,7 +159,7 @@ def reset_game():
     score = 0
     scroll_speed = base_speed
     reset_cacti()
-    reset_powerup()   # CHANGED: was reset_powerups()
+    reset_powerup()   
 
 
 def update_animation():
@@ -182,7 +180,7 @@ def draw_scene():
     screen.blit(dino_frames[action][frame], dino_rect)
     for cactus in cactus_rects:
         screen.blit(cactus_image, cactus)
-    if powerup_active:   # CHANGED: draw the powerup only while it is on screen
+    if powerup_active:
         screen.blit(powerup_image, powerup_rect)
 
 def music_player(filename, volume, times):
@@ -261,12 +259,11 @@ while True:
             if cactus.right < 0:
                 place_cactus(cactus)
 
-        # NEW: a powerup appears every 200 points (only if the last one is gone)
+        
         if score >= next_powerup_score and not powerup_active:
             spawn_powerup()
 
-        # CHANGED: move the single powerup; if the player misses it, it simply disappears
-        # (elif: it does not move on the frame it spawns, because the cacti already moved this frame)
+    
         elif powerup_active:
             powerup_rect.x -= scroll_speed
             if powerup_rect.right < 0:
@@ -282,7 +279,6 @@ while True:
                     high_score = int(score)
                     highscore.save(high_score)
                 break
-        # CHANGED: the 2x happens once, then the powerup disappears (before, it doubled the score every frame)
         if powerup_active and game_state == PLAYING:
             offset = (powerup_rect.x - dino_rect.x, powerup_rect.y - dino_rect.y)
             if dino_mask.overlap(powerup_mask, offset):
