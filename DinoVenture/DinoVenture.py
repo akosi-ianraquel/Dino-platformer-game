@@ -27,13 +27,16 @@ base_score_constant = 0.4
 
 ground_y = 400        # the y position the dino and cactus 
 base_speed = 7        # how fast the grass and cactus move at the start of a run
-max_speed = 20        # the game never gets faster than this
+max_speed = 30        # the game never gets faster than this
 points_per_speed = 100   # every 200 points the game speeds up by 1
 scroll_speed = base_speed
 gravity = 1.2
 jump_strength = -20
-min_gap = 400          # smallest empty space between two cacti (pixels)
-max_gap = 900          # biggest empty space between two cacti (pixels)
+min_gap = 400          # smallest empty space between two obstacles
+max_gap = 900          # biggest empty space between two obstacles
+powerup_every = 200    # NEW: a powerup appears each time the score passes another 200 points
+next_powerup_score = powerup_every   # NEW: the score the next powerup appears at
+powerup_active = False   # NEW: True while a powerup is on screen
 
 
 # One picture drawn twice side by side, so it can scroll forever
@@ -59,11 +62,12 @@ cactus_mask = pygame.mask.from_surface(cactus_image)   # only the visible pixels
 cactus_rects = [cactus_image.get_rect(midbottom=(1300, ground_y)) for _ in range(4)]
 
 
-multiplier_powerup = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'powerup2x.png')).convert_alpha()
-multiplier_precised = multiplier_powerup.subsurface(pygame.Rect(366, 367, 1316, 1318))
-multiplier_sized = pygame.transform.scale(multiplier_precised, (30, 30))
-multiplier_mask = pygame.mask.from_surface(multiplier_sized)
-multiplier_rects =  [multiplier_sized.get_rect(midbottom=(1300, ground_y)) for _ in range(4)]
+# CHANGED: renamed to follow the cactus names (sheet -> part -> image -> mask -> rect)
+powerup_sheet = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'powerup2x.png')).convert_alpha()
+powerup_part = powerup_sheet.subsurface(pygame.Rect(366, 367, 1316, 1318))
+powerup_image = pygame.transform.scale(powerup_part, (30, 30))
+powerup_mask = pygame.mask.from_surface(powerup_image)
+powerup_rect = powerup_image.get_rect(midbottom=(1300, ground_y))   # CHANGED: one powerup at a time, not a list of 4
 
 
 dino_sheet = spritesheet.SpriteSheet(
@@ -126,23 +130,27 @@ def reset_cacti():
         x = cactus.right
 
 
-def reset_powerups():
-    # line the cacti up off the right edge, one after another, with random gaps
-    x = 1200
-    for powerup in multiplier_rects:
-        powerup.left = x + random_gap()
-        powerup.bottom = ground_y
-        x = powerup.right
+def reset_powerup():
+    # CHANGED: replaces reset_powerups(); a new run has no powerup on screen and the first one comes at 200 points
+    global powerup_active, next_powerup_score
+    powerup_active = False
+    next_powerup_score = powerup_every
+
+
+def spawn_powerup():
+    # NEW: put the powerup just off the right edge, and keep it away from the cacti
+    global powerup_active, next_powerup_score
+    powerup_rect.midbottom = (1250, ground_y)
+    for cactus in sorted(cactus_rects, key=lambda c: c.x):      # sorted left to right
+        if powerup_rect.inflate(160, 0).colliderect(cactus):    # too close to a cactus?
+            powerup_rect.left = cactus.right + 80               # then place it just after that cactus
+    powerup_active = True
+    next_powerup_score = (score // powerup_every + 1) * powerup_every   # the next multiple of 200
 
 def place_cactus(cactus):
     # cactus placement random
     farthest = max(c.right for c in cactus_rects)
     cactus.left = max(1200, farthest) + random_gap()
-
-def place_powerup(powerup):
-    # cactus placement random
-    farthest = max(c.right for c in multiplier_rects)
-    powerup.left = max(1200, farthest) + random_gap()
 
 
 def reset_game():
@@ -153,7 +161,7 @@ def reset_game():
     score = 0
     scroll_speed = base_speed
     reset_cacti()
-    reset_powerups()
+    reset_powerup()   # CHANGED: was reset_powerups()
 
 
 def update_animation():
@@ -174,8 +182,8 @@ def draw_scene():
     screen.blit(dino_frames[action][frame], dino_rect)
     for cactus in cactus_rects:
         screen.blit(cactus_image, cactus)
-    for powerup in multiplier_rects:
-        screen.blit(multiplier_sized, powerup)
+    if powerup_active:   # CHANGED: draw the powerup only while it is on screen
+        screen.blit(powerup_image, powerup_rect)
 
 def music_player(filename, volume, times):
     pygame.mixer.music.load(os.path.join(BASE_DIR, 'music', filename))
@@ -253,10 +261,16 @@ while True:
             if cactus.right < 0:
                 place_cactus(cactus)
 
-        for powerup in multiplier_rects:
-            powerup.x -= scroll_speed
-            if powerup.right < 0:
-                place_cactus(powerup)
+        # NEW: a powerup appears every 200 points (only if the last one is gone)
+        if score >= next_powerup_score and not powerup_active:
+            spawn_powerup()
+
+        # CHANGED: move the single powerup; if the player misses it, it simply disappears
+        # (elif: it does not move on the frame it spawns, because the cacti already moved this frame)
+        elif powerup_active:
+            powerup_rect.x -= scroll_speed
+            if powerup_rect.right < 0:
+                powerup_active = False
 
         dino_mask = pygame.mask.from_surface(dino_frames[action][frame])
         for cactus in cactus_rects:
@@ -268,10 +282,16 @@ while True:
                     high_score = int(score)
                     highscore.save(high_score)
                 break
-        for powerup in multiplier_rects:
-            offset = (powerup.x - dino_rect.x, powerup.y - dino_rect.y)
-            if dino_mask.overlap(multiplier_mask, offset):
-                score = score * 2
+        # CHANGED: the 2x happens once, then the powerup disappears (before, it doubled the score every frame)
+        if powerup_active and game_state == PLAYING:
+            offset = (powerup_rect.x - dino_rect.x, powerup_rect.y - dino_rect.y)
+            if dino_mask.overlap(powerup_mask, offset):
+                sound_effect('powerup2x.ogg', 1)
+                base_score_constant += base_score_constant * 2
+                powerup_active = False
+                next_powerup_score = (score // powerup_every + 1) * powerup_every   # NEW: next one comes at the next multiple of 200
+                continue
+                
                 
     draw_scene()
 
