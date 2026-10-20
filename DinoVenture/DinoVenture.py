@@ -38,12 +38,12 @@ max_gap = 900          # maxgap on 2 obstacles
 powerup_every = 200    # powerup per 200 points
 next_powerup_score = powerup_every   
 powerup_active = False   # will be true while a powerup is on screen
-boost_duration = 8000    # NEW: how long the powerup effect lasts (milliseconds)
-boost_slow = 0.5         # NEW: pacing right after pickup (0.5 = half speed); it climbs back to 1.0 by the end
-boost_active = False     # NEW: True while the effect (slow-down + 2x score) is running
-boost_start = 0          # NEW: the clock reading (ms) when the effect started
-speed_carry = 0          # NEW: leftover fraction of a pixel, so slow speeds still move smoothly
-current_speed = scroll_speed   # NEW: the speed really used this frame (scroll_speed x slow-down)
+boost_duration = 8000    # how long the powerup effect lasts (milliseconds)
+boost_slow = 0.5         
+boost_active = False     
+boost_start = 0          
+speed_carry = 0         
+current_speed = scroll_speed  
 
 
 
@@ -265,20 +265,20 @@ while True:
                 boost_active = False              # time is up, the normal pacing is back
             else:
                 score_multiplier = 2
-                slow_factor = boost_slow + (1 - boost_slow) * boost_progress   # slowly climbs from 0.5 back to 1
+                slow_factor = boost_slow + (1 - boost_slow) * boost_progress   
 
-        score += base_score_constant * score_multiplier    # CHANGED: x2 only while the effect runs
-        scroll_speed = min(base_speed + (score // points_per_speed), max_speed)   # the normal pacing for this score
-        current_speed = scroll_speed * slow_factor         # NEW: the pacing really used this frame
-        speed_carry += current_speed                       # NEW: move whole pixels, keep the leftover fraction
+        score += base_score_constant * score_multiplier    
+        scroll_speed = min(base_speed + (score // points_per_speed), max_speed)  
+        current_speed = scroll_speed * slow_factor        
+        speed_carry += current_speed                       
         move = int(speed_carry)
         speed_carry -= move
 
-        bg_speed = current_speed * bg_ratio                # CHANGED: uses current_speed
+        bg_speed = current_speed * bg_ratio                
         bg_x -= bg_speed
         if bg_x <= -bg_width:
             bg_x += bg_width
-        grass_x -= move                                    # CHANGED: scroll_speed -> move
+        grass_x -= move                                   
         if grass_x <= -grass_width:
             grass_x += grass_width
 
@@ -296,7 +296,7 @@ while True:
         update_animation()
         
         for cactus in cactus_rects:
-            cactus.x -= move                       # CHANGED: scroll_speed -> move
+            cactus.x -= move                       
             if cactus.right < 0:
                 place_cactus(cactus)
         
@@ -306,7 +306,7 @@ while True:
 
         
         elif powerup_active:
-            powerup_rect.x -= move                 # CHANGED: scroll_speed -> move
+            powerup_rect.x -= move                 
             if powerup_rect.right < 0:
                 powerup_active = False
 
@@ -315,7 +315,7 @@ while True:
             offset = (cactus.x - dino_rect.x, cactus.y - dino_rect.y)
             if dino_mask.overlap(cactus_mask, offset):
                 game_state = GAME_OVER
-                boost_active = False   # NEW: the timer disappears on game over
+                boost_active = False   
                 music_player('game_over.ogg', 0.7, 1)
                 if int(score) > high_score:
                     high_score = int(score)
@@ -329,10 +329,10 @@ while True:
                 sound_effect('powerup2x.ogg', 1)
                 screen.blit(power_overlay, (0, 0))
                 powerup_active = False
-                boost_active = True                    # NEW: start the timed effect
-                boost_start = pygame.time.get_ticks()  # NEW: picking up another one restarts the timer
+                boost_active = True                    
+                boost_start = pygame.time.get_ticks()  
                 next_powerup_score = (score // powerup_every + 1) * powerup_every   
-                # REMOVED: base_score_constant * 2 (it doubled the score rate forever), scroll_speed = base_speed, and continue
+                
                 
                 
     draw_scene()
@@ -351,7 +351,7 @@ while True:
         score_text = score_font.render(f'Score: {int(score)}', True, 'white')
         screen.blit(score_text, (950, 30))
 
-    if boost_active:   # NEW: timer in the top left corner while the effect lasts
+    if boost_active:   #timer in the top left corner while the effect lasts
         draw_boost_timer()
 
     high_text = score_font.render(f'High Score: {high_score}', True, 'white')
