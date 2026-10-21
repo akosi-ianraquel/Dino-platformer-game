@@ -25,25 +25,25 @@ score = 0
 base_score_constant = 0.2
 
 
-ground_y = 400        # default y position the dino and cactus 
+ground_y = 400        #default y position the dino and cactus 
 base_speed = 7        
-max_speed = 30        # the game never gets faster than this
-points_per_speed = 100   # every 200 points the game speeds up by 1
+max_speed = 30        #the game never gets faster than this
+points_per_speed = 100   #every 200 points the game speeds up by 1
 scroll_speed = base_speed
 gravity = 1.2
 jump_strength = -20
-min_gap = 400          # minimum gap
-max_gap = 900          # maxgap on 2 obstacles
+min_gap = 400          #minimum gap
+max_gap = 900          #maxgap on 2 obstacles
 
-powerup_every = 200    # powerup per 200 points
+powerup_every = 200    #powerup per 200 points
 next_powerup_score = powerup_every   
-powerup_active = False   # will be true while a powerup is on screen
-boost_duration = 8000    # how long the powerup effect lasts (milliseconds)
-boost_slow = 0.5         
-boost_active = False     
-boost_start = 0          
-speed_carry = 0         
-current_speed = scroll_speed  
+is_powerup_active = False   #will be true while a powerup is on screen
+boost_duration = 8000    #how long the powerup effect lasts (milliseconds)
+boost_slow = 0.5         #change pace 
+boost_active = False     #True while effect 
+boost_start = 0      
+speed_carry = 0          
+current_speed = scroll_speed   
 
 
 
@@ -51,7 +51,7 @@ bg_image = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'bac
 bg_image = pygame.transform.scale(bg_image, (1200, 500))
 bg_width = bg_image.get_width()
 bg_x = 0
-bg_ratio = 3 / 5      # to slowdown background, far away illusion
+bg_ratio = 3 / 5      #to slowdown background, far away illusion
 bg_speed = scroll_speed * bg_ratio
 
 
@@ -65,7 +65,7 @@ grass_x = 0
 cactus_sheet = pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'elements', 'cactus_sprite.png')).convert_alpha()
 cactus_part = cactus_sheet.subsurface(pygame.Rect(78, 77, 33, 42))
 cactus_image = pygame.transform.scale_by(cactus_part, 2)
-cactus_mask = pygame.mask.from_surface(cactus_image)   # only the visible pixels count as a hit
+cactus_mask = pygame.mask.from_surface(cactus_image)   #only the visible pixels count as a hit
 cactus_rects = [cactus_image.get_rect(midbottom=(1300, ground_y)) for _ in range(4)]
 
 
@@ -81,7 +81,7 @@ powerup_rect = powerup_image.get_rect(midbottom=(1300, ground_y))
 dino_sheet = spritesheet.SpriteSheet(
     pygame.image.load(os.path.join(BASE_DIR, 'graphics', 'characters', 'sheets', 'character_doux.png')).convert_alpha())
 
-# Cut the sheet into frames: 4 idle, 6 run, 3 jump
+#Cut the sheet into frames: 4 idle, 6 run, 3 jump
 IDLE, RUN, JUMP = 0, 1, 2
 dino_frames = []
 sheet_index = 0
@@ -94,8 +94,8 @@ for how_many in [4, 6, 3]:
 
 dino_rect = dino_frames[IDLE][0].get_rect(midbottom=(100, ground_y))
 action = IDLE                
-frame = 0                    # intial frame on spritesheet pic
-frame_delay = 70             # 70 milliseconds before next frame 
+frame = 0                    #intial frame on spritesheet pic
+frame_delay = 70             #70 milliseconds before next frame 
 last_frame_time = pygame.time.get_ticks()
 vertical_velocity = 0
 is_jumping = False
@@ -118,10 +118,6 @@ dark_overlay.set_alpha(140)
 dark_overlay.fill('black')
 
 
-power_overlay = pygame.Surface((1200, 500))  
-power_overlay.set_alpha(140)
-power_overlay.fill('aquamarine2')
-
 
 
 def draw_button(text, rect):
@@ -131,20 +127,24 @@ def draw_button(text, rect):
 
 
 def draw_boost_timer():
-    # NEW: powerup icon, seconds left and a shrinking bar in the top left corner
+    power_overlay = pygame.Surface((1200, 500))  
+    power_overlay.set_alpha(20)
+    power_overlay.fill('aquamarine2')
+    screen.blit(power_overlay)
+    
     remaining = max(0, boost_duration - (pygame.time.get_ticks() - boost_start))
     screen.blit(powerup_image, (20, 20))
     timer_text = score_font.render(f'x2 {remaining / 1000:.1f}s', True, 'white')
     screen.blit(timer_text, (60, 24))
+    
 
 
 def random_gap():
-    # the faster the game, the bigger the gap, so the player always has the same time to react
-    return (random.randint(min_gap, max_gap) * scroll_speed // base_speed) * 0.8
+    #faster pace = big obstacle gap 
+    return (random.randint(min_gap, max_gap) * scroll_speed // base_speed) * 0.7
 
 
 def reset_cacti():
-    # line the cacti up off the right edge, one after another, with random gaps
     x = 1200
     for cactus in cactus_rects:
         cactus.left = x + random_gap()
@@ -153,25 +153,24 @@ def reset_cacti():
 
 
 def reset_powerup():
-    # CHANGED: replaces reset_powerups(); a new run has no powerup on screen and the first one comes at 200 points
-    global powerup_active, next_powerup_score
-    powerup_active = False
+    global is_powerup_active, next_powerup_score
+    is_powerup_active = False
     next_powerup_score = powerup_every
 
 
 def spawn_powerup():
-    global powerup_active, next_powerup_score
+    global is_powerup_active, next_powerup_score
     powerup_rect.midbottom = (1250, ground_y)
-    for cactus in sorted(cactus_rects, key=lambda c: c.x):      # CHANGED: it only checked one cactus before
+    for cactus in sorted(cactus_rects, key=lambda c: c.x):      #it only checked one cactus before
         if powerup_rect.inflate(160, 0).colliderect(cactus):
             powerup_rect.left = cactus.right + 80
-    powerup_active = True
-    next_powerup_score = (score // powerup_every + 1) * powerup_every   # the next multiple of 200
+    is_powerup_active = True
+    next_powerup_score = (score // powerup_every + 1) * powerup_every   
 
-def place_cactus(cactus):
+def cactus_placement_cords(cactus_xcords):
     #random cactus placement 
     farthest = max(c.right for c in cactus_rects)
-    cactus.left = max(1200, farthest) + random_gap()
+    cactus_xcords.left = max(1200, farthest) + random_gap()
 
 
 def reset_game():
@@ -181,12 +180,12 @@ def reset_game():
     is_jumping = False
     score = 0
     scroll_speed = base_speed
-    boost_active = False   # NEW: a new run starts without the effect
-    speed_carry = 0        # NEW
+    boost_active = False   #if new run, no effect running
+    speed_carry = 0        
     reset_cacti()
     reset_powerup()   
 
-
+#awit dol di mo talaga binabasa comments ko
 def update_animation():
     global frame, last_frame_time
     current_tick = pygame.time.get_ticks()
@@ -205,7 +204,7 @@ def draw_scene():
     screen.blit(dino_frames[action][frame], dino_rect)
     for cactus in cactus_rects:
         screen.blit(cactus_image, cactus)
-    if powerup_active:   
+    if is_powerup_active:   
         screen.blit(powerup_image, powerup_rect)
 
 def music_player(filename, volume, times):
@@ -224,7 +223,8 @@ high_score = highscore.load()
 
 #menu sound
 music_player('menu_bgm.ogg', 0.7, -1)
-    
+
+
 
 while True:
     for event in pygame.event.get():
@@ -256,29 +256,29 @@ while True:
         update_animation()
 
     elif game_state == PLAYING:
-        # NEW: while the powerup effect runs, the game is slower and the score counts double
         score_multiplier = 1
         slow_factor = 1
         if boost_active:
-            boost_progress = (pygame.time.get_ticks() - boost_start) / boost_duration   # 0 at pickup -> 1 at the end
+            boost_progress = (pygame.time.get_ticks() - boost_start) / boost_duration  
             if boost_progress >= 1:
-                boost_active = False              # time is up, the normal pacing is back
+                boost_active = False              #time is up, return normal pacing 
             else:
                 score_multiplier = 2
-                slow_factor = boost_slow + (1 - boost_slow) * boost_progress   
+                slow_factor = boost_slow + (1 - boost_slow) * boost_progress   #slowly climbs from 0.5 back to 1
 
-        score += base_score_constant * score_multiplier    
-        scroll_speed = min(base_speed + (score // points_per_speed), max_speed)  
+        score += base_score_constant * score_multiplier    #x2 only while the effect; score multiplier = 1
+        scroll_speed = min(base_speed + (score // points_per_speed), max_speed)   #the normal pacing for this score
+        # variable = min(calculation, cap) : min()returns smallest value so scroll_speed is not so fast 
         current_speed = scroll_speed * slow_factor        
         speed_carry += current_speed                       
-        move = int(speed_carry)
-        speed_carry -= move
+        speed_universal = int(speed_carry)
+        speed_carry -= speed_universal
 
-        bg_speed = current_speed * bg_ratio                
+        bg_speed = current_speed * bg_ratio                #uses bg ratio for slowdown bg movement
         bg_x -= bg_speed
         if bg_x <= -bg_width:
             bg_x += bg_width
-        grass_x -= move                                   
+        grass_x -= speed_universal                                    
         if grass_x <= -grass_width:
             grass_x += grass_width
 
@@ -296,19 +296,19 @@ while True:
         update_animation()
         
         for cactus in cactus_rects:
-            cactus.x -= move                       
+            cactus.x -= speed_universal                       
             if cactus.right < 0:
-                place_cactus(cactus)
+                cactus_placement_cords(cactus)
         
         
-        if score >= next_powerup_score and not powerup_active:
+        if score >= next_powerup_score and not is_powerup_active:
             spawn_powerup()
 
-        
-        elif powerup_active:
-            powerup_rect.x -= move                 
+        #speed universal > for cac and grass movement and powerup
+        elif is_powerup_active:
+            powerup_rect.x -= speed_universal                 
             if powerup_rect.right < 0:
-                powerup_active = False
+                is_powerup_active = False
 
         dino_mask = pygame.mask.from_surface(dino_frames[action][frame])
         for cactus in cactus_rects:
@@ -323,19 +323,18 @@ while True:
                 break
         
         
-        if powerup_active and game_state == PLAYING:
-            offset = (powerup_rect.x - dino_rect.x, powerup_rect.y - dino_rect.y)
-            if dino_mask.overlap(powerup_mask, offset):
-                sound_effect('powerup2x.ogg', 1)
-                screen.blit(power_overlay, (0, 0))
-                powerup_active = False
-                boost_active = True                    
-                boost_start = pygame.time.get_ticks()  
-                next_powerup_score = (score // powerup_every + 1) * powerup_every   
-                
-                
+
+               
                 
     draw_scene()
+    if is_powerup_active and game_state == PLAYING:
+        offset = (powerup_rect.x - dino_rect.x, powerup_rect.y - dino_rect.y)
+        if dino_mask.overlap(powerup_mask, offset):
+            sound_effect('powerup2x.ogg', 1)
+            is_powerup_active = False
+            boost_active = True                    #NEW: start the timed effect
+            boost_start = pygame.time.get_ticks()  #NEW: picking up another one restarts the timer
+            next_powerup_score = (score // powerup_every + 1) * powerup_every  
 
     if game_state == MENU:
         screen.blit(title_text, (800, 50))
@@ -351,7 +350,7 @@ while True:
         score_text = score_font.render(f'Score: {int(score)}', True, 'white')
         screen.blit(score_text, (950, 30))
 
-    if boost_active:   #timer in the top left corner while the effect lasts
+    if boost_active:   #NEW: timer in the top left corner while the effect lasts
         draw_boost_timer()
 
     high_text = score_font.render(f'High Score: {high_score}', True, 'white')
